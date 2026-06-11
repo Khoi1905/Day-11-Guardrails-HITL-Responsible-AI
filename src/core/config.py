@@ -2,10 +2,16 @@
 Lab 11 — Configuration & API Key Setup
 """
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def setup_api_key():
-    """Load Google API key from environment or prompt."""
+    """Load Google API key from .env, environment, or an interactive prompt."""
+    load_dotenv(PROJECT_ROOT / ".env")
     if "GOOGLE_API_KEY" not in os.environ:
         os.environ["GOOGLE_API_KEY"] = input("Enter Google API Key: ")
     os.environ["GOOGLE_GENAI_USE_VERTEXAI"] = "0"
@@ -19,7 +25,8 @@ ALLOWED_TOPICS = [
     "deposit", "withdrawal", "balance", "payment",
     "tai khoan", "giao dich", "tiet kiem", "lai suat",
     "chuyen tien", "the tin dung", "so du", "vay",
-    "ngan hang", "atm",
+    "ngan hang", "atm", "tài khoản", "giao dịch", "tiết kiệm",
+    "lãi suất", "chuyển tiền", "thẻ tín dụng", "số dư", "ngân hàng",
 ]
 
 # Blocked topics (immediate reject)

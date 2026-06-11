@@ -83,7 +83,12 @@ async def part3_testing():
     print("PART 3: Security Testing Pipeline")
     print("=" * 60)
 
-    from testing.testing import run_comparison, print_comparison, SecurityTestPipeline
+    from testing.testing import (
+        run_comparison,
+        print_comparison,
+        SecurityTestPipeline,
+        TestResult,
+    )
     from agents.agent import create_unsafe_agent
 
     # TODO 10: Before vs after comparison
@@ -98,7 +103,18 @@ async def part3_testing():
     print("\n--- TODO 11: Security Test Pipeline ---")
     agent, runner = create_unsafe_agent()
     pipeline = SecurityTestPipeline(agent, runner)
-    results = await pipeline.run_all()
+    results = [
+        TestResult(
+            attack_id=result["id"],
+            category=result["category"],
+            input_text=result["input"],
+            response=result["response"],
+            blocked=result["blocked"],
+            leaked_secrets=result.get("leaked_secrets", []),
+            error=result["response"] if result.get("error") else None,
+        )
+        for result in unprotected
+    ]
     if results:
         pipeline.print_report(results)
     else:
@@ -128,10 +144,11 @@ async def main(parts=None):
     Args:
         parts: List of part numbers to run, or None for all
     """
-    setup_api_key()
-
     if parts is None:
         parts = [1, 2, 3, 4]
+
+    if any(part in (1, 2, 3) for part in parts):
+        setup_api_key()
 
     for part in parts:
         if part == 1:

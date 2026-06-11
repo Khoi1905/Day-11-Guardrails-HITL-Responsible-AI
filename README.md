@@ -1,6 +1,7 @@
-# Day-11-Guardrails-HITL-Responsible-AI
+# Day 11 - Guardrails, HITL & Responsible AI
 
-Day 11 — Guardrails, HITL & Responsible AI: How to make agent applications safe?
+Completed lab implementation for securing a VinBank assistant with Google ADK,
+Gemini, NeMo Guardrails, automated red teaming, and human-in-the-loop routing.
 
 ## Objectives
 
@@ -11,113 +12,91 @@ Day 11 — Guardrails, HITL & Responsible AI: How to make agent applications saf
 - Design HITL workflow with confidence-based routing
 - Perform basic red teaming
 
+## Completed Deliverables
+
+- All 13 lab TODOs implemented in `src/`.
+- Completed notebook: `notebooks/lab11_guardrails_hitl_completed.ipynb`.
+- Security report and HITL flowchart: `LAB_REPORT.md`.
+- Offline regression tests: `tests/test_lab.py`.
+
 ## Project Structure
 
 ```
 Day-11-Guardrails-HITL-Responsible-AI/
 ├── notebooks/
-│   ├── lab11_guardrails_hitl.ipynb            # Student lab (Colab)
-│   └── lab11_guardrails_hitl_solution.ipynb   # Solution (instructor only)
-├── src/                                       # Local Python version
-│   ├── main.py                    # Entry point — run all parts or pick one
+│   ├── lab11_guardrails_hitl.ipynb
+│   └── lab11_guardrails_hitl_completed.ipynb
+├── src/
+│   ├── main.py                    # Entry point
 │   ├── core/
 │   │   ├── config.py              # API key setup, allowed/blocked topics
 │   │   └── utils.py               # chat_with_agent() helper
 │   ├── agents/
 │   │   └── agent.py               # Unsafe & protected agent creation
 │   ├── attacks/
-│   │   └── attacks.py             # TODO 1-2: Adversarial prompts & AI red teaming
+│   │   └── attacks.py             # Adversarial prompts and AI red teaming
 │   ├── guardrails/
-│   │   ├── input_guardrails.py    # TODO 3-5: Injection detection, topic filter, plugin
-│   │   ├── output_guardrails.py   # TODO 6-8: Content filter, LLM-as-Judge, plugin
-│   │   └── nemo_guardrails.py     # TODO 9: NeMo Guardrails with Colang
+│   │   ├── input_guardrails.py    # Injection detection, topic filter, ADK plugin
+│   │   ├── output_guardrails.py   # Redaction, LLM-as-Judge, ADK plugin
+│   │   └── nemo_guardrails.py     # NeMo Guardrails with Colang
 │   ├── testing/
-│   │   └── testing.py             # TODO 10-11: Before/after comparison, pipeline
+│   │   └── testing.py             # Before/after comparison and test pipeline
 │   └── hitl/
-│       └── hitl.py                # TODO 12-13: Confidence router, HITL design
+│       └── hitl.py                # Confidence router and HITL design
+├── tests/
+│   └── test_lab.py
+├── .env.example
+├── LAB_REPORT.md
 ├── requirements.txt
 └── README.md
 ```
 
 ## Setup
 
-### Google Colab (recommended)
+### Local Windows (recommended)
 
-1. Upload `notebooks/lab11_guardrails_hitl.ipynb` to Google Colab
-2. Create a Google API Key at [Google AI Studio](https://aistudio.google.com/apikey)
-3. Save the API key in Colab Secrets as `GOOGLE_API_KEY`
-4. Run cells in order
+Use Python 3.11. NeMo's `annoy` dependency may require Microsoft C++ Build
+Tools on Windows.
 
-### Local (Notebook)
-
-```bash
-pip install -r requirements.txt
-export GOOGLE_API_KEY="your-api-key-here"
-jupyter notebook notebooks/lab11_guardrails_hitl.ipynb
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
 ```
 
-### Local (Python modules — no Colab needed)
+Set `GOOGLE_API_KEY` in `.env`. The `.env` file is excluded from Git.
 
-```bash
-cd src/
-pip install -r ../requirements.txt
-export GOOGLE_API_KEY="your-api-key-here"
+```powershell
+cd src
 
 # Run the full lab
-python main.py
+..\.venv\Scripts\python.exe main.py
 
 # Or run specific parts
-python main.py --part 1    # Part 1: Attacks
-python main.py --part 2    # Part 2: Guardrails
-python main.py --part 3    # Part 3: Testing pipeline
-python main.py --part 4    # Part 4: HITL design
-
-# Or test individual modules
-python guardrails/input_guardrails.py
-python guardrails/output_guardrails.py
-python testing/testing.py
-python hitl/hitl.py
+..\.venv\Scripts\python.exe main.py --part 1
+..\.venv\Scripts\python.exe main.py --part 2
+..\.venv\Scripts\python.exe main.py --part 3
+..\.venv\Scripts\python.exe main.py --part 4
 ```
 
-### Tools Used
+### Offline Verification
 
-- **Google ADK** — Agent Development Kit (plugins, runners)
-- **NeMo Guardrails** — NVIDIA framework with Colang (declarative safety rules)
-- **Gemini 2.5 Flash/Flash Lite** — LLM backend (you can switch to other models if you want)
+These checks do not consume Gemini quota:
 
-## Lab Structure (2.5 hours)
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe -m pip check
+```
 
-| Part | Content | Duration |
-|------|---------|----------|
-| Part 1 | Attack unprotected agent + AI red teaming | 30 min |
-| Part 2A | Implement input guardrails (injection, topic filter) | 20 min |
-| Part 2B | Implement output guardrails (content filter, LLM-as-Judge) | 20 min |
-| Part 2C | NeMo Guardrails with Colang (NVIDIA) | 20 min |
-| Part 3 | Before/after comparison + automated testing pipeline | 30 min |
-| Part 4 | Design HITL workflow | 30 min |
+The verified result is **9/9 tests passing** with no dependency conflicts.
 
-## Deliverables
+## Notes
 
-1. **Security Report**: Before/after comparison of 5+ attacks (ADK + NeMo)
-2. **HITL Flowchart**: 3 decision points with escalation paths
-
-## 13 TODOs
-
-| # | Description | Framework |
-|---|-------------|-----------|
-| 1 | Write 5 adversarial prompts | - |
-| 2 | Generate attack test cases with AI | Gemini |
-| 3 | Injection detection (regex) | Python |
-| 4 | Topic filter | Python |
-| 5 | Input Guardrail Plugin | Google ADK |
-| 6 | Content filter (PII, secrets) | Python |
-| 7 | LLM-as-Judge safety check | Gemini |
-| 8 | Output Guardrail Plugin | Google ADK |
-| 9 | NeMo Guardrails Colang config | NeMo |
-| 10 | Rerun 5 attacks with guardrails | Google ADK |
-| 11 | Automated security testing pipeline | Python |
-| 12 | Confidence Router (HITL) | Python |
-| 13 | Design 3 HITL decision points | Design |
+- Parts 1-3 call Gemini and consume API quota. Part 4 runs without an API key.
+- The free-tier daily quota may prevent repeating the entire live test sequence
+  on the same day.
+- See `LAB_REPORT.md` for actual before/after results, limitations, and HITL
+  decision points.
 
 ## References
 

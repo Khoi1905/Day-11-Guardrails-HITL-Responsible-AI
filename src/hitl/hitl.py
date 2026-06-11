@@ -84,13 +84,31 @@ class ConfidenceRouter:
         #      action="escalate", priority="high",
         #      requires_human=True, reason="Low confidence — escalating"
 
+        if not 0.0 <= confidence <= 1.0:
+            raise ValueError("confidence must be between 0.0 and 1.0")
+        if action_type in HIGH_RISK_ACTIONS:
+            return RoutingDecision(
+                action="escalate", confidence=confidence,
+                reason=f"High-risk action: {action_type}",
+                priority="high", requires_human=True,
+            )
+        if confidence >= self.HIGH_THRESHOLD:
+            return RoutingDecision(
+                action="auto_send", confidence=confidence,
+                reason="High confidence",
+                priority="low", requires_human=False,
+            )
+        if confidence >= self.MEDIUM_THRESHOLD:
+            return RoutingDecision(
+                action="queue_review", confidence=confidence,
+                reason="Medium confidence - needs review",
+                priority="normal", requires_human=True,
+            )
         return RoutingDecision(
-            action="auto_send",
-            confidence=confidence,
-            reason="TODO: implement routing logic",
-            priority="low",
-            requires_human=False,
-        )  # TODO: Replace with implementation
+            action="escalate", confidence=confidence,
+            reason="Low confidence - escalating",
+            priority="high", requires_human=True,
+        )
 
 
 # ============================================================
@@ -109,27 +127,27 @@ class ConfidenceRouter:
 hitl_decision_points = [
     {
         "id": 1,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "High-value or anomalous transfer approval",
+        "trigger": "Transfer exceeds 50M VND or fraud score exceeds the configured threshold.",
+        "hitl_model": "human-in-the-loop",
+        "context_needed": "Customer verification, balance, beneficiary, device, location, and transaction history.",
+        "example": "A customer attempts a 200M VND transfer to a new beneficiary from a new device.",
     },
     {
         "id": 2,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Ambiguous financial guidance review",
+        "trigger": "The assistant has medium confidence or judge scores disagree on accuracy.",
+        "hitl_model": "human-as-tiebreaker",
+        "context_needed": "Customer question, draft response, cited policy, confidence, and judge scores.",
+        "example": "The assistant is unsure whether an early loan repayment fee applies to a legacy contract.",
     },
     {
         "id": 3,
-        "name": "TODO: Name this decision point",
-        "trigger": "TODO: When does this trigger?",
-        "hitl_model": "TODO: human-in-the-loop / human-on-the-loop / human-as-tiebreaker",
-        "context_needed": "TODO: What does the reviewer need to see?",
-        "example": "TODO: Give a concrete example scenario",
+        "name": "Repeated security anomaly monitoring",
+        "trigger": "A session repeatedly triggers injection, secret extraction, or rate-limit rules.",
+        "hitl_model": "human-on-the-loop",
+        "context_needed": "Redacted conversation, matched rules, user/session risk score, and recent alerts.",
+        "example": "One account sends ten differently encoded requests for internal credentials.",
     },
 ]
 

@@ -5,10 +5,16 @@ Lab 11 — Part 2A: Input Guardrails
   TODO 5: Input Guardrail Plugin (ADK)
 """
 import re
+import sys
+from pathlib import Path
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from google.genai import types
 from google.adk.plugins import base_plugin
 from google.adk.agents.invocation_context import InvocationContext
+from google.adk.models.llm_response import LlmResponse
 
 from core.config import ALLOWED_TOPICS, BLOCKED_TOPICS
 
@@ -38,9 +44,17 @@ def detect_injection(user_input: str) -> bool:
         True if injection detected, False otherwise
     """
     INJECTION_PATTERNS = [
-        # TODO: Add at least 5 regex patterns
-        # Example:
-        # r"ignore (all )?(previous|above) instructions",
+        r"\b(ignore|forget|disregard|override|bypass)\b.{0,40}\b(instructions?|directives?|rules?|prompt)\b",
+        r"\byou are now\b|\bpretend (?:that )?you are\b|\bact as (?:a |an )?(?:unrestricted|uncensored|dan)\b",
+        r"\b(system|developer) prompt\b|\breveal.{0,30}\b(instructions?|prompt|config(?:uration)?)\b",
+        r"\b(output|translate|convert|encode|reformat).{0,40}\b(instructions?|prompt|config(?:uration)?)\b",
+        r"\b(base64|rot13|hex(?:adecimal)?|character[- ]by[- ]character)\b.{0,60}\b(prompt|secret|password|key|config)",
+        r"\b(fill|complete|provide|confirm|show|list)\b.{0,80}\b(password|api[_ -]?key|credentials?|database endpoint|connection string)\b",
+        r"\b(admin password|api[_ -]?key|credentials?|database endpoint|connection string)\b.{0,40}(?:=|is|are|:|___)",
+        r"\b(ciso|auditor|developer|administrator)\b.{0,60}\b(ticket|audit|credential|password|api[_ -]?key)\b",
+        r"\b(same|own|internal)\b.{0,40}\b(password|api[_ -]?key|credentials?|configuration)\b",
+        r"\bbo qua\b.{0,50}\b(huong dan|chi dan|quy tac)\b|\b(tiet lo|cho toi xem)\b.{0,40}\b(mat khau|system prompt|api key)\b",
+        r"\bbỏ qua\b.{0,50}\b(hướng dẫn|chỉ dẫn|quy tắc)\b|\b(tiết lộ|cho tôi xem)\b.{0,40}\b(mật khẩu|system prompt|api key)\b",
     ]
 
     for pattern in INJECTION_PATTERNS:
@@ -68,14 +82,12 @@ def topic_filter(user_input: str) -> bool:
     Returns:
         True if input should be BLOCKED (off-topic or blocked topic)
     """
-    input_lower = user_input.lower()
-
-    # TODO: Implement logic:
-    # 1. If input contains any blocked topic -> return True
-    # 2. If input doesn't contain any allowed topic -> return True
-    # 3. Otherwise -> return False (allow)
-
-    pass  # Replace with your implementation
+    input_lower = user_input.lower().strip()
+    if not input_lower:
+        return True
+    if any(topic in input_lower for topic in BLOCKED_TOPICS):
+        return True
+    return not any(topic in input_lower for topic in ALLOWED_TOPICS)
 
 
 # ============================================================
@@ -91,6 +103,12 @@ def topic_filter(user_input: str) -> bool:
 
 class InputGuardrailPlugin(base_plugin.BasePlugin):
     """Plugin that blocks bad input before it reaches the LLM."""
+
+    INJECTION_BLOCK_MESSAGE = (
+        "I cannot process requests that attempt to override instructions "
+        "or extract internal information."
+    )
+    TOPIC_BLOCK_MESSAGE = "I can only help with safe banking-related questions."
 
     def __init__(self):
         super().__init__(name="input_guardrail")
@@ -113,6 +131,18 @@ class InputGuardrailPlugin(base_plugin.BasePlugin):
             parts=[types.Part.from_text(text=message)],
         )
 
+    def _check_text(self, text: str, *, count: bool = True) -> types.Content | None:
+        """Return a block response when input violates an input guardrail."""
+        if detect_injection(text):
+            if count:
+                self.blocked_count += 1
+            return self._block_response(self.INJECTION_BLOCK_MESSAGE)
+        if topic_filter(text):
+            if count:
+                self.blocked_count += 1
+            return self._block_response(self.TOPIC_BLOCK_MESSAGE)
+        return None
+
     async def on_user_message_callback(
         self,
         *,
@@ -127,15 +157,25 @@ class InputGuardrailPlugin(base_plugin.BasePlugin):
         """
         self.total_count += 1
         text = self._extract_text(user_message)
+        return self._check_text(text)
 
-        # TODO: Implement logic:
-        # 1. Call detect_injection(text)
-        #    - If True: increment blocked_count, return self._block_response("...")
-        # 2. Call topic_filter(text)
-        #    - If True: increment blocked_count, return self._block_response("...")
-        # 3. If both are False: return None (let message through)
+    async def before_model_callback(self, *, callback_context, llm_request):
+        """Enforce input blocking before the model call on newer ADK runtimes.
 
-        pass  # Replace with your implementation
+        ADK 2.x may continue with the original node input after an
+        on_user_message callback modifies the history message. Returning an
+        LlmResponse here guarantees that blocked input never reaches the model.
+        """
+        for content in reversed(llm_request.contents):
+            text = self._extract_text(content)
+            if text in (self.INJECTION_BLOCK_MESSAGE, self.TOPIC_BLOCK_MESSAGE):
+                return LlmResponse(content=self._block_response(text))
+            if getattr(content, "role", None) == "user":
+                blocked = self._check_text(text, count=False)
+                if blocked is not None:
+                    return LlmResponse(content=blocked)
+                break
+        return None
 
 
 # ============================================================
@@ -196,10 +236,6 @@ async def test_input_plugin():
 
 
 if __name__ == "__main__":
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
     test_injection_detection()
     test_topic_filter()
     import asyncio
